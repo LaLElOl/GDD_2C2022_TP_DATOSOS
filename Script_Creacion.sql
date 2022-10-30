@@ -605,10 +605,6 @@ IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'migrar_marca')
 	DROP PROCEDURE migrar_marca
 GO
 
-IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'migrar_producto')
-	DROP PROCEDURE migrar_producto
-GO
-
 IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'migrar_categoria')
 	DROP PROCEDURE migrar_categoria
 GO
@@ -1041,6 +1037,7 @@ BEGIN TRANSACTION
 		EXISTS (SELECT 1 FROM [DATOSOS].Producto) and
 		EXISTS (SELECT 1 FROM [DATOSOS].Producto_Variante) and
 		EXISTS (SELECT 1 FROM [DATOSOS].Item_Venta)
+
 	BEGIN
 		PRINT '';
 		PRINT 'Migracion Terminada Correctamente!!';
