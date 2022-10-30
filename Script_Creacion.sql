@@ -605,6 +605,37 @@ IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'migrar_marca')
 	DROP PROCEDURE migrar_marca
 GO
 
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'migrar_producto')
+	DROP PROCEDURE migrar_producto
+GO
+
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'migrar_categoria')
+	DROP PROCEDURE migrar_categoria
+GO
+
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'migrar_tipo_variante')
+	DROP PROCEDURE migrar_tipo_variante
+GO
+
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'migrar_tipo_descuento_compra')
+	DROP PROCEDURE migrar_tipo_descuento_compra
+GO
+
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'migrar_proveedor')
+	DROP PROCEDURE migrar_proveedor
+GO
+
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'migrar_producto')
+	DROP PROCEDURE migrar_producto
+GO
+
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'migrar_producto_variante')
+	DROP PROCEDURE migrar_producto_variante
+GO
+
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'migrar_item_venta')
+	DROP PROCEDURE migrar_item_venta
+GO
 
 /**************************
 CREATE SP
@@ -830,19 +861,55 @@ AS
 GO
 
 --Categoria
-
+CREATE PROCEDURE migrar_categoria
+AS
+  BEGIN
+	PRINT 'Migrando Categoria'
+    INSERT INTO [DATOSOS].Categoria (cat_nombre)
+		SELECT DISTINCT PRODUCTO_CATEGORIA
+		FROM [GD2C2022].gd_esquema.Maestra
+		WHERE PRODUCTO_CATEGORIA IS NOT NULL
+  END
+GO
 
 
 --Tipo Variante
-
+CREATE PROCEDURE migrar_tipo_variante
+AS
+  BEGIN
+	PRINT 'Migrando Tipo de Variante'
+    INSERT INTO [DATOSOS].Tipo_Variante (var_tipo, var_descripcion)
+		SELECT DISTINCT PRODUCTO_TIPO_VARIANTE, PRODUCTO_VARIANTE
+		FROM [GD2C2022].gd_esquema.Maestra
+		WHERE PRODUCTO_TIPO_VARIANTE IS NOT NULL
+  END
+GO
 
 
 --Tipo Descuento Compra
-
+CREATE PROCEDURE migrar_tipo_descuento_compra
+AS
+  BEGIN
+	PRINT 'Migrando Tipo de Descuento Compra'
+    INSERT INTO [DATOSOS].Tipo_Descuento_Compra VALUES ('Porcentaje');
+	INSERT INTO [DATOSOS].Tipo_Descuento_Compra VALUES ('Monto Fijo');
+  END
+GO
 
 
 --Proveedor
-
+CREATE PROCEDURE migrar_proveedor
+AS
+  BEGIN
+	PRINT 'Migrando Proveedor'
+    INSERT INTO [DATOSOS].Proveedor (prov_razon_social, prov_cuit, prov_domicilio, prov_mail, prov_codigo_postal, prov_localidad, prov_provincia)
+		SELECT DISTINCT PROVEEDOR_RAZON_SOCIAL, PROVEEDOR_CUIT, PROVEEDOR_DOMICILIO, PROVEEDOR_MAIL, PROVEEDOR_CODIGO_POSTAL, loc_codigo, prov_codigo
+		FROM [GD2C2022].gd_esquema.Maestra
+			join [DATOSOS].Provincia on PROVEEDOR_PROVINCIA = prov_nombre
+			join [DATOSOS].Localidad on PROVEEDOR_LOCALIDAD = loc_nombre and loc_provincia = prov_codigo
+		WHERE PROVEEDOR_RAZON_SOCIAL IS NOT NULL
+  END
+GO
 
 
 --Compra
@@ -854,16 +921,64 @@ GO
 
 
 --Producto
-
-
+CREATE PROCEDURE migrar_producto
+AS
+  BEGIN
+	PRINT 'Migrando Producto'
+    INSERT INTO [DATOSOS].Producto (prod_codigo, prod_marca, prod_nombre, prod_descripcion, prod_categoria, prod_material)
+		SELECT DISTINCT 
+			PRODUCTO_CODIGO,
+			marca_codigo,
+			PRODUCTO_NOMBRE,
+			PRODUCTO_DESCRIPCION,
+			cat_codigo,
+			material_codigo
+		FROM [GD2C2022].gd_esquema.Maestra 
+		join [DATOSOS].Marca on marca_nombre = PRODUCTO_MARCA
+		join [DATOSOS].Categoria on cat_nombre = PRODUCTO_CATEGORIA
+		join [DATOSOS].Material on material_nombre = PRODUCTO_MATERIAL
+		WHERE PRODUCTO_CODIGO IS NOT NULL
+  END
+GO
 
 --Producto Variante
-
-
+CREATE PROCEDURE migrar_producto_variante
+AS
+  BEGIN
+	PRINT 'Migrando Producto Variante'
+    INSERT INTO [DATOSOS].Producto_Variante (prodvar_variante_codigo, prodvar_producto, prodvar_variante, prodvar_precio, prodvar_stock)
+		SELECT DISTINCT 
+			PRODUCTO_VARIANTE_CODIGO,
+			prod_codigo,
+			var_codigo,
+			0
+		--ACA HAY QUE CAMBIAR EL STOCK POR LA CUENTA DE ITEM COMPRADOS - ITEM VENDIDOS 
+		FROM [GD2C2022].gd_esquema.Maestra 
+		join [DATOSOS].Producto on  prod_codigo = PRODUCTO_CODIGO 
+		join [DATOSOS].Tipo_Variante on var_tipo = PRODUCTO_TIPO_VARIANTE and var_descripcion = PRODUCTO_VARIANTE
+		WHERE PRODUCTO_CODIGO IS NOT NULL
+  END
+GO
 
 --Item Venta
-
-
+CREATE PROCEDURE migrar_item_venta
+AS
+  BEGIN
+	PRINT 'Migrando Item Venta'
+    INSERT INTO [DATOSOS].Item_Venta (item_ven_venta_codigo, item_ven_prodvariante_codigo, item_ven_cantidad, item_ven_precio_unitario, item_ven_precio_total)
+		SELECT 
+			ven_codigo,
+			prodvar_variante_codigo,
+			SUM(VENTA_PRODUCTO_CANTIDAD),
+			VENTA_PRODUCTO_PRECIO,
+			SUM(VENTA_PRODUCTO_CANTIDAD) * VENTA_PRODUCTO_PRECIO						
+		FROM [GD2C2022].gd_esquema.Maestra 
+		join [DATOSOS].Venta on ven_codigo = VENTA_CODIGO
+		join [DATOSOS].Producto_Variante on prodvar_variante_codigo =  PRODUCTO_VARIANTE_CODIGO
+		WHERE PRODUCTO_CODIGO IS NOT NULL
+		GROUP BY ven_codigo,prodvar_variante_codigo,VENTA_PRODUCTO_PRECIO
+  END
+GO
 
 --Item compra
 
@@ -890,6 +1005,13 @@ BEGIN TRANSACTION
 		EXECUTE migrar_Cupon_por_venta
 		EXECUTE migrar_material
 		EXECUTE migrar_marca
+		EXECUTE migrar_categoria
+		EXECUTE migrar_tipo_variante
+		EXECUTE migrar_tipo_descuento_compra
+		EXECUTE migrar_proveedor
+		EXECUTE migrar_producto
+		EXECUTE migrar_producto_variante
+		EXECUTE migrar_item_venta
 
 	END TRY
 	BEGIN CATCH
@@ -911,7 +1033,14 @@ BEGIN TRANSACTION
 		EXISTS (SELECT 1 FROM [DATOSOS].Descuentos_Venta) and 
 		EXISTS (SELECT 1 FROM [DATOSOS].Cupon_por_venta) and
 		EXISTS (SELECT 1 FROM [DATOSOS].Material) and
-		EXISTS (SELECT 1 FROM [DATOSOS].Marca)
+		EXISTS (SELECT 1 FROM [DATOSOS].Marca) and
+		EXISTS (SELECT 1 FROM [DATOSOS].Categoria) and
+		EXISTS (SELECT 1 FROM [DATOSOS].Tipo_Variante) and
+		EXISTS (SELECT 1 FROM [DATOSOS].Tipo_descuento_compra) and
+		EXISTS (SELECT 1 FROM [DATOSOS].Proveedor) and
+		EXISTS (SELECT 1 FROM [DATOSOS].Producto) and
+		EXISTS (SELECT 1 FROM [DATOSOS].Producto_Variante) and
+		EXISTS (SELECT 1 FROM [DATOSOS].Item_Venta)
 	BEGIN
 		PRINT '';
 		PRINT 'Migracion Terminada Correctamente!!';
