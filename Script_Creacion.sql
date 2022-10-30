@@ -597,6 +597,15 @@ IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'migrar_Cupon_por_ven
 GO
 
 
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'migrar_material')
+	DROP PROCEDURE migrar_material
+GO
+
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'migrar_marca')
+	DROP PROCEDURE migrar_marca
+GO
+
+
 /**************************
 CREATE SP
 ***************************/
@@ -797,6 +806,67 @@ AS
   END
 GO
 
+CREATE PROCEDURE migrar_material
+AS
+  BEGIN
+	PRINT 'Migrando Material'
+    INSERT INTO [DATOSOS].Material (material_nombre)
+		SELECT DISTINCT PRODUCTO_MATERIAL
+		FROM [GD2C2022].gd_esquema.Maestra
+		WHERE PRODUCTO_MATERIAL IS NOT NULL
+  END
+GO
+
+--Marca 
+CREATE PROCEDURE migrar_marca
+AS
+  BEGIN
+	PRINT 'Migrando Marca'
+    INSERT INTO [DATOSOS].Marca (marca_nombre)
+		SELECT DISTINCT PRODUCTO_MARCA
+		FROM [GD2C2022].gd_esquema.Maestra
+		WHERE PRODUCTO_MARCA IS NOT NULL
+  END
+GO
+
+--Categoria
+
+
+
+--Tipo Variante
+
+
+
+--Tipo Descuento Compra
+
+
+
+--Proveedor
+
+
+
+--Compra
+
+
+
+--Descuento Compra
+
+
+
+--Producto
+
+
+
+--Producto Variante
+
+
+
+--Item Venta
+
+
+
+--Item compra
+
 
 /**************************
 EXECUT SP 
@@ -818,7 +888,9 @@ BEGIN TRANSACTION
 		EXECUTE migrar_envio
 		EXECUTE migrar_descuento_venta
 		EXECUTE migrar_Cupon_por_venta
-		
+		EXECUTE migrar_material
+		EXECUTE migrar_marca
+
 	END TRY
 	BEGIN CATCH
 		ROLLBACK TRANSACTION;
@@ -837,7 +909,9 @@ BEGIN TRANSACTION
 		EXISTS (SELECT 1 FROM [DATOSOS].Venta) and
 		EXISTS (SELECT 1 FROM [DATOSOS].Envio) and
 		EXISTS (SELECT 1 FROM [DATOSOS].Descuentos_Venta) and 
-		EXISTS (SELECT 1 FROM [DATOSOS].Cupon_por_venta)
+		EXISTS (SELECT 1 FROM [DATOSOS].Cupon_por_venta) and
+		EXISTS (SELECT 1 FROM [DATOSOS].Material) and
+		EXISTS (SELECT 1 FROM [DATOSOS].Marca)
 	BEGIN
 		PRINT '';
 		PRINT 'Migracion Terminada Correctamente!!';
