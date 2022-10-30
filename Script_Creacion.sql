@@ -605,6 +605,21 @@ IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'migrar_marca')
 	DROP PROCEDURE migrar_marca
 GO
 
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'migrar_categoria')
+	DROP PROCEDURE migrar_categoria
+GO
+
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'migrar_tipo_variante')
+	DROP PROCEDURE migrar_tipo_variante
+GO
+
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'migrar_tipo_descuento_compra')
+	DROP PROCEDURE migrar_tipo_descuento_compra
+GO
+
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'migrar_proveedor')
+	DROP PROCEDURE migrar_proveedor
+GO
 
 /**************************
 CREATE SP
@@ -830,19 +845,55 @@ AS
 GO
 
 --Categoria
-
+CREATE PROCEDURE migrar_categoria
+AS
+  BEGIN
+	PRINT 'Migrando Categoria'
+    INSERT INTO [DATOSOS].Categoria (cat_nombre)
+		SELECT DISTINCT PRODUCTO_CATEGORIA
+		FROM [GD2C2022].gd_esquema.Maestra
+		WHERE PRODUCTO_CATEGORIA IS NOT NULL
+  END
+GO
 
 
 --Tipo Variante
-
+CREATE PROCEDURE migrar_tipo_variante
+AS
+  BEGIN
+	PRINT 'Migrando Tipo de Variante'
+    INSERT INTO [DATOSOS].Tipo_Variante (var_tipo, var_descripcion)
+		SELECT DISTINCT PRODUCTO_TIPO_VARIANTE, PRODUCTO_VARIANTE
+		FROM [GD2C2022].gd_esquema.Maestra
+		WHERE PRODUCTO_TIPO_VARIANTE IS NOT NULL
+  END
+GO
 
 
 --Tipo Descuento Compra
-
+CREATE PROCEDURE migrar_tipo_descuento_compra
+AS
+  BEGIN
+	PRINT 'Migrando Tipo de Descuento Compra'
+    INSERT INTO [DATOSOS].Tipo_Descuento_Compra VALUES ('Porcentaje');
+	INSERT INTO [DATOSOS].Tipo_Descuento_Compra VALUES ('Monto Fijo');
+  END
+GO
 
 
 --Proveedor
-
+CREATE PROCEDURE migrar_proveedor
+AS
+  BEGIN
+	PRINT 'Migrando Proveedor'
+    INSERT INTO [DATOSOS].Proveedor (prov_razon_social, prov_cuit, prov_domicilio, prov_mail, prov_codigo_postal, prov_localidad, prov_provincia)
+		SELECT DISTINCT PROVEEDOR_RAZON_SOCIAL, PROVEEDOR_CUIT, PROVEEDOR_DOMICILIO, PROVEEDOR_MAIL, PROVEEDOR_CODIGO_POSTAL, loc_codigo, prov_codigo
+		FROM [GD2C2022].gd_esquema.Maestra
+			join [DATOSOS].Provincia on PROVEEDOR_PROVINCIA = prov_nombre
+			join [DATOSOS].Localidad on PROVEEDOR_LOCALIDAD = loc_nombre and loc_provincia = prov_codigo
+		WHERE PROVEEDOR_RAZON_SOCIAL IS NOT NULL
+  END
+GO
 
 
 --Compra
@@ -890,6 +941,10 @@ BEGIN TRANSACTION
 		EXECUTE migrar_Cupon_por_venta
 		EXECUTE migrar_material
 		EXECUTE migrar_marca
+		EXECUTE migrar_categoria
+		EXECUTE migrar_tipo_variante
+		EXECUTE migrar_tipo_descuento_compra
+		EXECUTE migrar_proveedor
 
 	END TRY
 	BEGIN CATCH
@@ -911,7 +966,12 @@ BEGIN TRANSACTION
 		EXISTS (SELECT 1 FROM [DATOSOS].Descuentos_Venta) and 
 		EXISTS (SELECT 1 FROM [DATOSOS].Cupon_por_venta) and
 		EXISTS (SELECT 1 FROM [DATOSOS].Material) and
-		EXISTS (SELECT 1 FROM [DATOSOS].Marca)
+		EXISTS (SELECT 1 FROM [DATOSOS].Marca) and
+		EXISTS (SELECT 1 FROM [DATOSOS].Categoria) and
+		EXISTS (SELECT 1 FROM [DATOSOS].Tipo_Variante) and
+		EXISTS (SELECT 1 FROM [DATOSOS].Tipo_descuento_compra) and
+		EXISTS (SELECT 1 FROM [DATOSOS].Proveedor)
+		
 	BEGIN
 		PRINT '';
 		PRINT 'Migracion Terminada Correctamente!!';
