@@ -945,14 +945,14 @@ AS
     INSERT INTO [DATOSOS].Producto_Variante (prodvar_variante_codigo, prodvar_producto, prodvar_variante, prodvar_precio, prodvar_stock)
 		SELECT DISTINCT 
 			PRODUCTO_VARIANTE_CODIGO,
-			prod_codigo,
+			PRODUCTO_CODIGO,
 			var_codigo,
-			0
-		--ACA HAY QUE CAMBIAR EL STOCK POR LA CUENTA DE ITEM COMPRADOS - ITEM VENDIDOS 
-		FROM [GD2C2022].gd_esquema.Maestra 
-		join [DATOSOS].Producto on  prod_codigo = PRODUCTO_CODIGO 
+			MAX(VENTA_PRODUCTO_PRECIO),
+			0 --ACA HAY QUE CAMBIAR EL STOCK POR LA CUENTA DE ITEM COMPRADOS - ITEM VENDIDOS
+		FROM [GD2C2022].gd_esquema.Maestra
 		join [DATOSOS].Tipo_Variante on var_tipo = PRODUCTO_TIPO_VARIANTE and var_descripcion = PRODUCTO_VARIANTE
-		WHERE PRODUCTO_CODIGO IS NOT NULL
+		WHERE PRODUCTO_CODIGO IS NOT NULL and VENTA_PRODUCTO_PRECIO is not null
+		GROUP BY PRODUCTO_VARIANTE_CODIGO, PRODUCTO_CODIGO,var_codigo
   END
 GO
 
