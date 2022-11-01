@@ -909,12 +909,34 @@ GO
 
 
 --Compra
+CREATE PROCEDURE migrar_compra
+AS
+  BEGIN
+	PRINT 'Migrando compra'
+	INSERT INTO [DATOSOS].Compra (compra_codigo, compra_fecha, compra_medio_pago, compra_proveedor_cuit, compra_total, compra_proveedor_razon)
+		SELECT DISTINCT COMPRA_NUMERO, COMPRA_FECHA, med_codigo, prov_cuit, COMPRA_TOTAL, prov_razon_social
+		FROM [GD2C2022].gd_esquema.Maestra 
+		join [DATOSOS].Proveedor on PROVEEDOR_RAZON_SOCIAL = prov_razon_social and PROVEEDOR_CUIT = prov_cuit
+		join [DATOSOS].Medio_Pago on COMPRA_MEDIO_PAGO = med_nombre
+		WHERE COMPRA_NUMERO IS NOT NULL
+  END
+GO
 
 
 
 --Descuento Compra
 
-
+CREATE PROCEDURE migrar_descuento_compra
+AS
+  BEGIN
+	PRINT 'Migrando Descuento compra'
+    INSERT INTO [DATOSOS].Descuentos_Compra (desc_compra_codigo, desc_compra_valor, desc_tipo_descuento)
+		SELECT distinct COMPRA_NUMERO, DESCUENTO_COMPRA_VALOR, tipo_desc_compra_codigo
+		FROM [GD2C2022].gd_esquema.Maestra
+		JOIN [DATOSOS].Tipo_Descuento_Compra on DESSCUENTO_COMPRA_CODIGO = tipo_desc_compra_nombre
+		WHERE COMPRA_NUMERO IS NOT NULL
+  END
+GO
 
 --Producto
 CREATE PROCEDURE migrar_producto
@@ -977,6 +999,19 @@ AS
 GO
 
 --Item compra
+CREATE PROCEDURE migrar_item_compra
+AS
+  BEGIN
+	PRINT 'Migrando Item Compra'
+    INSERT INTO [DATOSOS].Item_compra (item_com_compra_codigo, item_com_producto_codigo, item_com_cantidad, item_com_precio_unitario, item_com_precio_total)
+		SELECT compra_codigo, prodvar_variante_codigo, SUM(COMPRA_PRODUCTO_CANTIDAD), COMPRA_PRODUCTO_PRECIO, SUM(COMPRA_PRODUCTO_CANTIDAD) * COMPRA_PRODUCTO_PRECIO						
+		FROM [GD2C2022].gd_esquema.Maestra 
+		join [DATOSOS].Compra on COMPRA_NUMERO = compra_codigo
+		join [DATOSOS].Producto_Variante on PRODUCTO_VARIANTE_CODIGO = prodvar_variante_codigo
+		WHERE PRODUCTO_CODIGO IS NOT NULL
+		GROUP BY compra_codigo, prodvar_variante_codigo, COMPRA_PRODUCTO_PRECIO
+  END
+GO
 
 
 /**************************
@@ -1005,9 +1040,12 @@ BEGIN TRANSACTION
 		EXECUTE migrar_tipo_variante
 		EXECUTE migrar_tipo_descuento_compra
 		EXECUTE migrar_proveedor
+		EXECUTE migrar_compra
+		EXECUTE migrar_descuento_compra
 		EXECUTE migrar_producto
 		EXECUTE migrar_producto_variante
 		EXECUTE migrar_item_venta
+		EXECUTE migrar_compra
 
 	END TRY
 	BEGIN CATCH
@@ -1034,9 +1072,12 @@ BEGIN TRANSACTION
 		EXISTS (SELECT 1 FROM [DATOSOS].Tipo_Variante) and
 		EXISTS (SELECT 1 FROM [DATOSOS].Tipo_descuento_compra) and
 		EXISTS (SELECT 1 FROM [DATOSOS].Proveedor) and
+		EXISTS (SELECT 1 FROM [DATOSOS].Compra) and
+		EXISTS (SELECT 1 FROM [DATOSOS].Descuentos_Compra) and 
 		EXISTS (SELECT 1 FROM [DATOSOS].Producto) and
 		EXISTS (SELECT 1 FROM [DATOSOS].Producto_Variante) and
-		EXISTS (SELECT 1 FROM [DATOSOS].Item_Venta)
+		EXISTS (SELECT 1 FROM [DATOSOS].Item_Venta) and
+		EXISTS (SELECT 1 FROM [DATOSOS].Item_compra)
 
 	BEGIN
 		PRINT '';
