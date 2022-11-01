@@ -633,6 +633,18 @@ IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'migrar_item_venta')
 	DROP PROCEDURE migrar_item_venta
 GO
 
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'migrar_compra')
+	DROP PROCEDURE migrar_compra
+GO
+
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'migrar_descuento_compra')
+	DROP PROCEDURE migrar_descuento_compra
+GO
+
+IF EXISTS(SELECT [name] FROM sys.procedures WHERE [name] = 'migrar_item_compra')
+	DROP PROCEDURE migrar_item_compra
+GO
+
 /**************************
 CREATE SP
 ***************************/
@@ -930,11 +942,17 @@ CREATE PROCEDURE migrar_descuento_compra
 AS
   BEGIN
 	PRINT 'Migrando Descuento compra'
-    INSERT INTO [DATOSOS].Descuentos_Compra (desc_compra_codigo, desc_compra_valor, desc_tipo_descuento)
-		SELECT distinct COMPRA_NUMERO, DESCUENTO_COMPRA_VALOR, tipo_desc_compra_codigo
-		FROM [GD2C2022].gd_esquema.Maestra
-		JOIN [DATOSOS].Tipo_Descuento_Compra on DESSCUENTO_COMPRA_CODIGO = tipo_desc_compra_nombre
-		WHERE COMPRA_NUMERO IS NOT NULL
+    INSERT INTO [DATOSOS].Descuentos_Compra (desc_compra_id,desc_compra_codigo, desc_compra_valor, desc_tipo_descuento)
+		SELECT distinct 
+			COMPRA_NUMERO, 
+			DESCUENTO_COMPRA_CODIGO, 
+			DESCUENTO_COMPRA_VALOR, 
+			tipo_desc_compra_codigo
+		FROM [GD2C2022].gd_esquema.Maestra, [DATOSOS].Tipo_Descuento_Compra 
+		WHERE 
+			COMPRA_NUMERO IS NOT NULL AND 
+			DESCUENTO_COMPRA_VALOR IS NOT NULL AND 
+			tipo_desc_compra_nombre = 'Porcentaje'
   END
 GO
 
@@ -1004,12 +1022,16 @@ AS
   BEGIN
 	PRINT 'Migrando Item Compra'
     INSERT INTO [DATOSOS].Item_compra (item_com_compra_codigo, item_com_producto_codigo, item_com_cantidad, item_com_precio_unitario, item_com_precio_total)
-		SELECT compra_codigo, prodvar_variante_codigo, SUM(COMPRA_PRODUCTO_CANTIDAD), COMPRA_PRODUCTO_PRECIO, SUM(COMPRA_PRODUCTO_CANTIDAD) * COMPRA_PRODUCTO_PRECIO						
-		FROM [GD2C2022].gd_esquema.Maestra 
-		join [DATOSOS].Compra on COMPRA_NUMERO = compra_codigo
+		SELECT 
+			COMPRA_NUMERO,
+			prodvar_variante_codigo,
+			SUM(COMPRA_PRODUCTO_CANTIDAD),
+			COMPRA_PRODUCTO_PRECIO, 
+			(SUM(COMPRA_PRODUCTO_CANTIDAD) * COMPRA_PRODUCTO_PRECIO)
+		FROM [GD2C2022].gd_esquema.Maestra
 		join [DATOSOS].Producto_Variante on PRODUCTO_VARIANTE_CODIGO = prodvar_variante_codigo
-		WHERE PRODUCTO_CODIGO IS NOT NULL
-		GROUP BY compra_codigo, prodvar_variante_codigo, COMPRA_PRODUCTO_PRECIO
+		WHERE COMPRA_NUMERO IS NOT NULL AND PRODUCTO_CODIGO IS NOT NULL
+		GROUP BY COMPRA_NUMERO, prodvar_variante_codigo, COMPRA_PRODUCTO_PRECIO
   END
 GO
 
@@ -1045,7 +1067,7 @@ BEGIN TRANSACTION
 		EXECUTE migrar_producto
 		EXECUTE migrar_producto_variante
 		EXECUTE migrar_item_venta
-		EXECUTE migrar_compra
+		EXECUTE migrar_item_compra
 
 	END TRY
 	BEGIN CATCH
