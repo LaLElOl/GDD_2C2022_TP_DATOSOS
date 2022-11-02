@@ -856,7 +856,6 @@ AS
   END
 GO
 
---Marca 
 CREATE PROCEDURE migrar_marca
 AS
   BEGIN
@@ -868,7 +867,6 @@ AS
   END
 GO
 
---Categoria
 CREATE PROCEDURE migrar_categoria
 AS
   BEGIN
@@ -880,8 +878,6 @@ AS
   END
 GO
 
-
---Tipo Variante
 CREATE PROCEDURE migrar_tipo_variante
 AS
   BEGIN
@@ -893,8 +889,6 @@ AS
   END
 GO
 
-
---Tipo Descuento Compra
 CREATE PROCEDURE migrar_tipo_descuento_compra
 AS
   BEGIN
@@ -904,8 +898,6 @@ AS
   END
 GO
 
-
---Proveedor
 CREATE PROCEDURE migrar_proveedor
 AS
   BEGIN
@@ -919,8 +911,6 @@ AS
   END
 GO
 
-
---Compra
 CREATE PROCEDURE migrar_compra
 AS
   BEGIN
@@ -933,10 +923,6 @@ AS
 		WHERE COMPRA_NUMERO IS NOT NULL
   END
 GO
-
-
-
---Descuento Compra
 
 CREATE PROCEDURE migrar_descuento_compra
 AS
@@ -956,7 +942,6 @@ AS
   END
 GO
 
---Producto
 CREATE PROCEDURE migrar_producto
 AS
   BEGIN
@@ -977,7 +962,6 @@ AS
   END
 GO
 
---Producto Variante
 CREATE PROCEDURE migrar_producto_variante
 AS
   BEGIN
@@ -988,15 +972,17 @@ AS
 			PRODUCTO_CODIGO,
 			var_codigo,
 			MAX(VENTA_PRODUCTO_PRECIO),
-			0 --ACA HAY QUE CAMBIAR EL STOCK POR LA CUENTA DE ITEM COMPRADOS - ITEM VENDIDOS
-		FROM [GD2C2022].gd_esquema.Maestra
-		join [DATOSOS].Tipo_Variante on var_tipo = PRODUCTO_TIPO_VARIANTE and var_descripcion = PRODUCTO_VARIANTE
+			(SELECT sum([COMPRA_PRODUCTO_CANTIDAD]) - sum([VENTA_PRODUCTO_CANTIDAD])
+			FROM [GD2C2022].[gd_esquema].[Maestra]
+			where PRODUCTO_CODIGO = M.PRODUCTO_CODIGO
+			group by [PRODUCTO_VARIANTE_CODIGO])
+		FROM [GD2C2022].gd_esquema.Maestra M
+			join [DATOSOS].Tipo_Variante on var_tipo = PRODUCTO_TIPO_VARIANTE and var_descripcion = PRODUCTO_VARIANTE
 		WHERE PRODUCTO_CODIGO IS NOT NULL and VENTA_PRODUCTO_PRECIO is not null
 		GROUP BY PRODUCTO_VARIANTE_CODIGO, PRODUCTO_CODIGO,var_codigo
   END
 GO
 
---Item Venta
 CREATE PROCEDURE migrar_item_venta
 AS
   BEGIN
@@ -1009,14 +995,14 @@ AS
 			VENTA_PRODUCTO_PRECIO,
 			SUM(VENTA_PRODUCTO_CANTIDAD) * VENTA_PRODUCTO_PRECIO						
 		FROM [GD2C2022].gd_esquema.Maestra 
-		join [DATOSOS].Venta on ven_codigo = VENTA_CODIGO
-		join [DATOSOS].Producto_Variante on prodvar_variante_codigo =  PRODUCTO_VARIANTE_CODIGO
-		WHERE PRODUCTO_CODIGO IS NOT NULL
+			join [DATOSOS].Venta on ven_codigo = VENTA_CODIGO
+			join [DATOSOS].Producto_Variante on prodvar_variante_codigo =  PRODUCTO_VARIANTE_CODIGO
+		WHERE PRODUCTO_VARIANTE_CODIGO IS NOT NULL
 		GROUP BY ven_codigo,prodvar_variante_codigo,VENTA_PRODUCTO_PRECIO
+		order by ven_codigo
   END
 GO
 
---Item compra
 CREATE PROCEDURE migrar_item_compra
 AS
   BEGIN
@@ -1025,19 +1011,18 @@ AS
 		SELECT 
 			COMPRA_NUMERO,
 			prodvar_variante_codigo,
-			SUM(COMPRA_PRODUCTO_CANTIDAD),
+			sum(COMPRA_PRODUCTO_CANTIDAD),
 			COMPRA_PRODUCTO_PRECIO, 
 			(SUM(COMPRA_PRODUCTO_CANTIDAD) * COMPRA_PRODUCTO_PRECIO)
 		FROM [GD2C2022].gd_esquema.Maestra
-		join [DATOSOS].Producto_Variante on PRODUCTO_VARIANTE_CODIGO = prodvar_variante_codigo
-		WHERE COMPRA_NUMERO IS NOT NULL AND PRODUCTO_CODIGO IS NOT NULL
+			join [DATOSOS].Producto_Variante on PRODUCTO_VARIANTE_CODIGO = prodvar_variante_codigo
+		WHERE COMPRA_NUMERO IS NOT NULL AND [PRODUCTO_VARIANTE_CODIGO] IS NOT NULL 
 		GROUP BY COMPRA_NUMERO, prodvar_variante_codigo, COMPRA_PRODUCTO_PRECIO
   END
 GO
 
-
 /**************************
-EXECUT SP 
+EXECUTE SP 
 ***************************/
 
 BEGIN TRANSACTION
@@ -1112,3 +1097,6 @@ BEGIN TRANSACTION
 		PRINT '';
 		THROW 50002, 'No se pudieron migrar los datos',1;
 	END
+
+
+
